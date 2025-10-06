@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import filedialog
-from logic import read_signal
+from logic import read_signal, add_signals
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tkinter import messagebox
 import matplotlib.pyplot as plt
@@ -66,7 +66,20 @@ def plot():
         plot_signal(idxs2, vals2)
     else:
         messagebox.showerror("err","no files selected")
-    
+
+def display_signal_sum():
+    global signal1_path, signal2_path
+    idxs1 = []
+    idxs2 = []
+    vals1 = []
+    vals2 = []
+
+    result = []
+    result_idx = []
+    read_signal(signal1_path, idxs1, vals1)
+    read_signal(signal2_path, idxs2, vals2)
+    result, result_idx = add_signals(idxs1,vals1,idxs2, vals2)
+    plot_signal(result_idx, result)
 
 
 rootWin = Tk()
@@ -89,9 +102,9 @@ remaining_space_frame.pack(side=LEFT, fill=BOTH, expand=True)
 
 # LABELS
 filepath_label1 = Label(browse_frame, textvariable=filepath, font=("Segoe UI", 11))
-filepath_label1.place(relx=0.05, rely=0.3, anchor=W)
+filepath_label1.place(relx=0.02, rely=0.3, anchor=W)
 filepath_label2 = Label(browse_frame, textvariable=filepath2, font=("Segoe UI", 11))
-filepath_label2.place(relx=0.05, rely=0.7, anchor=W)
+filepath_label2.place(relx=0.02, rely=0.7, anchor=W)
 
 default_ploting_label = Label(
     remaining_space_frame,
@@ -104,9 +117,11 @@ default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
 
 # BUTTONS
 browse_button1 = Button(browse_frame, text="Browse", command=lambda: browse(1), width=10)
-browse_button1.place(relx=0.45, rely=0.3, anchor=E)
+browse_button1.place(relx=0.42, rely=0.3, anchor=E)
 browse_button2 = Button(browse_frame, text="Browse", command=lambda: browse(2), width=10)
-browse_button2.place(relx=0.45, rely=0.7, anchor=E)
-browse_button2 = Button(browse_frame, text="Plot", command=plot, width=10)
-browse_button2.place(relx=0.7, rely=0.5, anchor=W)
+browse_button2.place(relx=0.42, rely=0.7, anchor=E)
+plot_button = Button(browse_frame, text="Plot", command=plot, width=10)
+plot_button.place(relx=0.5, rely=0.5, anchor=W)
+add_button = Button(browse_frame, text="Add Signals", command=display_signal_sum, width=10)
+add_button.place(relx=0.7, rely=0.3, anchor=W)
 rootWin.mainloop()

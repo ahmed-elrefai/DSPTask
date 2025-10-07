@@ -1,4 +1,5 @@
-
+cur_vals = []
+cur_idxs = []
 def read_signal(filepath, idxs, vals):
     """extracts the input from the filepath into idxs and vals (2 lists)"""
     text_input = []
@@ -12,30 +13,62 @@ def read_signal(filepath, idxs, vals):
         idxs.append(int(c))
         vals.append(int(d))
 
-def add_signals(idxs1, vals1, idxs2, vals2):
-    i = 0
-    j = 0
-    result = []
-    start = min(idxs1[0], idxs2[0])
-    end = max(idxs1[-1], idxs2[-1])
-    resultIdxs = list(range(start, end+1))
-    i = 0 
-    j = 0
-    while i <= len(idxs2) and j <= len(idxs1):
-        if idxs1[i] < idxs2[j]:
-            result.append(vals1[i])
-            i+=1
-        elif idxs1[i] > idxs2[j]:
-            result.append(vals2[j])
-            j+=1
-        else:
-            result.append(vals1[i]+vals2[j])
-            i+=1
-            j+=1
-    
-    result.extend(vals1[i:])
-    result.extend(vals2[j:])
-    return result, resultIdxs
+def add_signal(idxs, vals):
+    """
+    Add the given signal (idxs, vals) into the global cur_idxs / cur_vals.
+    This function MUTATES cur_idxs and cur_vals in-place so external modules
+    that hold references to these lists see updates.
+    """
+    global cur_idxs, cur_vals
+
+    # guard
+    if not idxs or not vals:
+        return
+
+    # If no accumulated signal yet, extend the existing lists (mutate in-place)
+    if len(cur_idxs) == 0:
+        cur_idxs.extend(idxs)
+        cur_vals.extend(vals)
+        return
+
+    # Merge two sorted index lists and sum overlapping samples
+    i, j = 0, 0
+    result_idxs = []
+    result_vals = []
+
+    while i < len(cur_idxs) and j < len(idxs):
+        a = cur_idxs[i]
+        b = idxs[j]
+        if a < b:
+            result_idxs.append(a)
+            result_vals.append(cur_vals[i])
+            i += 1
+        elif a > b:
+            result_idxs.append(b)
+            result_vals.append(vals[j])
+            j += 1
+        else:  # equal index
+            result_idxs.append(a)
+            result_vals.append(cur_vals[i] + vals[j])
+            i += 1
+            j += 1
+
+    # append remaining tail from cur
+    while i < len(cur_idxs):
+        result_idxs.append(cur_idxs[i])
+        result_vals.append(cur_vals[i])
+        i += 1
+
+    # append remaining tail from new signal
+    while j < len(idxs):
+        result_idxs.append(idxs[j])
+        result_vals.append(vals[j])
+        j += 1
+
+    # MUTATE the original lists so references remain valid
+    cur_idxs[:] = result_idxs
+    cur_vals[:] = result_vals
+
     
             
 

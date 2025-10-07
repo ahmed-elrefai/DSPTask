@@ -1,7 +1,7 @@
 # main_gui.py (or replace your current GUI file)
 from tkinter import *
 from tkinter import filedialog, messagebox
-import logic                # import module (we mutate lists in logic)
+import logic
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 
@@ -41,6 +41,7 @@ def add_signal_clicked():
 
     logic.add_signal(idxs, vals)  # mutate the accumulated lists in logic
     messagebox.showinfo("Added", f"Signal added to accumulation. Accumulated samples: {len(logic.cur_idxs)}")
+
 
 def plot_accumulated():
     """Plot the accumulated signal (logic.cur_idxs / logic.cur_vals)."""
@@ -115,5 +116,19 @@ plot_button.place(relx=0.68, rely=0.3, anchor=W)
 
 reset_button = Button(browse_frame, text="Reset", command=reset_accumulated, width=8)
 reset_button.place(relx=0.88, rely=0.3, anchor=W)
+
+multiply_label = Label(browse_frame, text="Multiply by:", font=("Segoe UI", 10), bg="#8E8E8E", fg="white")
+multiply_label.place(relx=0.25, rely=0.7, anchor=E)
+
+multiply_entry = Entry(browse_frame, width=10)
+multiply_entry.place(relx=0.33, rely=0.7, anchor=W)
+
+multiply_button = Button(
+    browse_frame,
+    text="Apply",
+    command=lambda: (logic.multiply(logic.cur_vals, float(multiply_entry.get())), plot_accumulated()),
+    width=10
+)
+multiply_button.place(relx=0.47, rely=0.7, anchor=W)
 
 rootWin.mainloop()

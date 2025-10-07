@@ -69,6 +69,11 @@ def add_signal(idxs, vals):
     cur_idxs[:] = result_idxs
     cur_vals[:] = result_vals
 
+def multiply(vals, c):
+    """Multiply given list of signal values in place."""
+    for i in range(len(vals)):
+        vals[i] *= c
+
     
             
 

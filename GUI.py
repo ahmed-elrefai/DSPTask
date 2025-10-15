@@ -5,7 +5,7 @@ import logic
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 
-selected_path = ""   # currently browsed file path
+selected_path = ""  # currently browsed file path
 
 def clear_plot_area():
     for w in remaining_space_frame.winfo_children():
@@ -42,13 +42,11 @@ def add_signal_clicked():
     logic.add_signal(idxs, vals)  # mutate the accumulated lists in logic
     messagebox.showinfo("Added", f"Signal added to accumulation. Accumulated samples: {len(logic.cur_idxs)}")
 
-
 def subtract_signal_clicked():
-    """Placeholder for subtracting a signal from the accumulated signal."""
-    # You can connect this to your subtract logic later.
+    """Subtract the currently browsed file's signal from the accumulated signal."""
     global selected_path
     if not selected_path:
-        messagebox.showerror("Error", "No file selected to add.")
+        messagebox.showerror("Error", "No file selected to subtract.")
         return
 
     idxs = []
@@ -60,8 +58,46 @@ def subtract_signal_clicked():
         return
     
     logic.sub_signal(idxs, vals)
-    print("Subtract clicked")
+    messagebox.showinfo("Subtracted", "Signal subtracted from accumulation.")
+    plot_accumulated()  # Update plot after subtraction
 
+def advance_signal_clicked():
+    """Advance the accumulated signal by k steps."""
+    try:
+        k = int(shift_entry.get())  # Get k from the entry field
+        if k < 0:
+            messagebox.showerror("Error", "Please enter a non-negative integer for k.")
+            return
+        logic.advance_signal(logic.cur_idxs, logic.cur_vals, k)
+        messagebox.showinfo("Advanced", f"Signal advanced by {k} steps.")
+        plot_accumulated()  # Update plot after advancing
+    except ValueError:
+        messagebox.showerror("Error", "Please enter a valid integer for k.")
+
+def delay_signal_clicked():
+    """Delay the accumulated signal by k steps."""
+    try:
+        k = int(shift_entry.get())  # Get k from the entry field
+        if k < 0:
+            messagebox.showerror("Error", "Please enter a non-negative integer for k.")
+            return
+        logic.delay_signal(logic.cur_idxs, logic.cur_vals, k)
+        messagebox.showinfo("Delayed", f"Signal delayed by {k} steps.")
+        plot_accumulated()  # Update plot after delaying
+    except ValueError:
+        messagebox.showerror("Error", "Please enter a valid integer for k.")
+
+def fold_signal_clicked():
+    """Fold (time-reverse) the accumulated signal."""
+    if not logic.cur_idxs or not logic.cur_vals:
+        messagebox.showerror("Error", "No accumulated signal to fold.")
+        return
+    try:
+        logic.fold_signal(logic.cur_idxs, logic.cur_vals)
+        messagebox.showinfo("Folded", "Signal has been folded.")
+        plot_accumulated() 
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to fold signal: {e}")
 
 def plot_accumulated():
     """Plot the accumulated signal (logic.cur_idxs / logic.cur_vals)."""
@@ -92,14 +128,12 @@ def plot_accumulated():
     canvas.draw()
     canvas.get_tk_widget().pack(fill='both', expand=True)
 
-
 def reset_accumulated():
     logic.cur_idxs.clear()
     logic.cur_vals.clear()
     clear_plot_area()
     default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
     messagebox.showinfo("Reset", "Accumulated signal cleared.")
-
 
 # ----------------- GUI setup -----------------
 rootWin = Tk()
@@ -157,5 +191,37 @@ multiply_button = Button(
     width=10
 )
 multiply_button.place(relx=0.47, rely=0.7, anchor=W)
+
+# ----------------- Shift section -----------------
+shift_label = Label(browse_frame, text="Shift by k:", font=("Segoe UI", 10), bg="#8E8E8E", fg="white")
+shift_label.place(relx=0.60, rely=0.7, anchor=E)  # Adjusted relx to make space for fold button
+
+shift_entry = Entry(browse_frame, width=10)
+shift_entry.place(relx=0.68, rely=0.7, anchor=W)  # Adjusted relx
+
+advance_button = Button(
+    browse_frame,
+    text=">",
+    command=advance_signal_clicked,
+    width=5
+)
+advance_button.place(relx=0.78, rely=0.7, anchor=W)  # Adjusted relx
+
+delay_button = Button(
+    browse_frame,
+    text="<",
+    command=delay_signal_clicked,
+    width=5
+)
+delay_button.place(relx=0.85, rely=0.7, anchor=W)  # Adjusted relx
+
+# ----------------- Fold button (NEW) -----------------
+fold_button = Button(
+    browse_frame,
+    text="Fold",
+    command=fold_signal_clicked,
+    width=8
+)
+fold_button.place(relx=0.92, rely=0.7, anchor=W)
 
 rootWin.mainloop()

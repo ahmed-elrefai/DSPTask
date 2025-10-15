@@ -17,6 +17,19 @@ def sub_signal(idxs, vals):
     vals = [-1 * val for val in vals]
     return add_signal(idxs, vals)
 
+def advance_signal(idxs, vals, k):
+    for i in range(len(idxs)):
+        idxs[i] = idxs[i] + k 
+
+
+def delay_signal(idxs, vals, k):
+    for i in range(len(idxs)):
+            idxs[i] = idxs[i] - k 
+            
+def fold_signal(idxs, vals):
+    for i in range(len(idxs)):
+            idxs[i] = idxs[i] * -1 
+
 def add_signal(idxs, vals):
     """
     Add the given signal (idxs, vals) into the global cur_idxs / cur_vals.

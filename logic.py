@@ -13,6 +13,10 @@ def read_signal(filepath, idxs, vals):
         idxs.append(int(c))
         vals.append(int(d))
 
+def sub_signal(idxs, vals):
+    vals = [-1 * val for val in vals]
+    return add_signal(idxs, vals)
+
 def add_signal(idxs, vals):
     """
     Add the given signal (idxs, vals) into the global cur_idxs / cur_vals.

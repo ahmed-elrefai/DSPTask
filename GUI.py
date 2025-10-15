@@ -1,4 +1,4 @@
-# main_gui.py (or replace your current GUI file)
+# main_gui.py
 from tkinter import *
 from tkinter import filedialog, messagebox
 import logic
@@ -43,6 +43,26 @@ def add_signal_clicked():
     messagebox.showinfo("Added", f"Signal added to accumulation. Accumulated samples: {len(logic.cur_idxs)}")
 
 
+def subtract_signal_clicked():
+    """Placeholder for subtracting a signal from the accumulated signal."""
+    # You can connect this to your subtract logic later.
+    global selected_path
+    if not selected_path:
+        messagebox.showerror("Error", "No file selected to add.")
+        return
+
+    idxs = []
+    vals = []
+    try:
+        logic.read_signal(selected_path, idxs, vals)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to read file: {e}")
+        return
+    
+    logic.sub_signal(idxs, vals)
+    print("Subtract clicked")
+
+
 def plot_accumulated():
     """Plot the accumulated signal (logic.cur_idxs / logic.cur_vals)."""
     clear_plot_area()
@@ -72,12 +92,14 @@ def plot_accumulated():
     canvas.draw()
     canvas.get_tk_widget().pack(fill='both', expand=True)
 
+
 def reset_accumulated():
     logic.cur_idxs.clear()
     logic.cur_vals.clear()
     clear_plot_area()
     default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
     messagebox.showinfo("Reset", "Accumulated signal cleared.")
+
 
 # ----------------- GUI setup -----------------
 rootWin = Tk()
@@ -105,18 +127,23 @@ default_ploting_label = Label(
 )
 default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
 
+# ----------------- Buttons -----------------
 browse_button = Button(browse_frame, text="Browse", command=browse, width=10)
-browse_button.place(relx=0.28, rely=0.3, anchor=E)
+browse_button.place(relx=0.25, rely=0.3, anchor=E)
 
 add_button = Button(browse_frame, text="Add Signal", command=add_signal_clicked, width=12)
-add_button.place(relx=0.48, rely=0.3, anchor=W)
+add_button.place(relx=0.40, rely=0.3, anchor=W)
+
+subtract_button = Button(browse_frame, text="Subtract Signal", command=subtract_signal_clicked, width=14)
+subtract_button.place(relx=0.55, rely=0.3, anchor=W)
 
 plot_button = Button(browse_frame, text="Plot Accumulated", command=plot_accumulated, width=14)
-plot_button.place(relx=0.68, rely=0.3, anchor=W)
+plot_button.place(relx=0.73, rely=0.3, anchor=W)
 
 reset_button = Button(browse_frame, text="Reset", command=reset_accumulated, width=8)
 reset_button.place(relx=0.88, rely=0.3, anchor=W)
 
+# ----------------- Multiply section -----------------
 multiply_label = Label(browse_frame, text="Multiply by:", font=("Segoe UI", 10), bg="#8E8E8E", fg="white")
 multiply_label.place(relx=0.25, rely=0.7, anchor=E)
 

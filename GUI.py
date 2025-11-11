@@ -6,7 +6,13 @@ import math
 import matplotlib.pyplot as plt
 import logic
 
-selected_path = ""  # currently browsed file path
+selected_path = "" 
+
+quantized_vals = None
+quant_error = None
+encoded_levels = None
+quant_levels = None
+quant_bits = None
 
 def clear_plot_area():
     for w in remaining_space_frame.winfo_children():
@@ -19,6 +25,146 @@ def browse():
         return
     filepath.set(path.split("/")[-1])
     selected_path = path
+
+def show_quantization_window():
+    """Open a window to input number of bits or levels and perform quantization.
+
+    The user can choose either:
+    - Number of bits: compute levels = 2**bits
+    - Number of levels: use directly
+
+    After quantization, the GUI displays:
+    - Original vs Quantized signal
+    - Quantization error (original - quantized)
+    - Encoded levels (integer codes)
+    """
+    global quantized_vals, quant_error, encoded_levels, quant_levels, quant_bits
+
+    if not logic.cur_vals:
+        messagebox.showerror("Error", "No signal available to quantize. Load or generate a signal first.")
+        return
+
+    input_window = Toplevel(rootWin)
+    input_window.title("Signal Quantization")
+    input_window.geometry("350x260")
+    input_window.resizable(False, False)
+
+    mode_var = StringVar(value="bits")
+
+    Radiobutton(input_window, text="Number of bits", variable=mode_var, value="bits").pack(anchor=W, padx=10, pady=(10,0))
+    bits_entry = Entry(input_window, width=20)
+    bits_entry.pack(padx=10, pady=2)
+    bits_entry.insert(0, "8")
+
+    Radiobutton(input_window, text="Number of levels", variable=mode_var, value="levels").pack(anchor=W, padx=10, pady=(10,0))
+    levels_entry = Entry(input_window, width=20)
+    levels_entry.pack(padx=10, pady=2)
+    levels_entry.insert(0, "256")
+
+    Label(input_window, text="(Quantization is uniform over signal range)", font=("Segoe UI", 8)).pack(pady=(6,0))
+
+    def do_quantize():
+        nonlocal mode_var, bits_entry, levels_entry
+        global quantized_vals, quant_error, encoded_levels, quant_levels, quant_bits
+        try:
+            mode = mode_var.get()
+            if mode == "bits":
+                b = int(bits_entry.get())
+                if b <= 0:
+                    raise ValueError("Bits must be positive")
+                L = 2 ** b
+                quant_bits = b
+                quant_levels = L
+            else:
+                L = int(levels_entry.get())
+                if L <= 1:
+                    raise ValueError("Levels must be integer > 1")
+                quant_bits = None
+                quant_levels = L
+
+            # perform uniform quantization on logic.cur_vals
+            x = logic.cur_vals
+            xmin = min(x)
+            xmax = max(x)
+            if xmax == xmin:
+                # degenerate: all samples equal -> single level
+                step = 0.0
+                q_vals = [xmin for _ in x]
+                codes = [0 for _ in x]
+                errors = [0.0 for _ in x]
+            else:
+                step = (xmax - xmin) / quant_levels
+                # mid-rise quantizer: reconstruction levels at xmin + (i+0.5)*step
+                q_vals = []
+                codes = []
+                errors = []
+                for xi in x:
+                    idx = int((xi - xmin) / step)
+                    if idx < 0:
+                        idx = 0
+                    if idx >= quant_levels:
+                        idx = quant_levels - 1
+                    recon = xmin + (idx + 0.5) * step
+                    q_vals.append(recon)
+                    codes.append(idx)
+                    errors.append(xi - recon)
+
+            quantized_vals = q_vals
+            quant_error = errors
+            encoded_levels = codes
+
+            input_window.destroy()
+            plot_quantization()
+        except ValueError as ve:
+            messagebox.showerror("Error", f"Invalid input: {ve}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Quantization failed: {e}")
+
+    Button(input_window, text="Quantize", command=do_quantize, width=12).pack(pady=10)
+    Button(input_window, text="Cancel", command=input_window.destroy, width=12).pack()
+
+
+def plot_quantization():
+    """Plot original vs quantized, quantization error, and encoded levels."""
+    clear_plot_area()
+
+    if not logic.cur_idxs or not logic.cur_vals:
+        default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
+        return
+
+    if quantized_vals is None or quant_error is None or encoded_levels is None:
+        plot_accumulated()
+        return
+
+    fig, ax = plt.subplots(3, 1, figsize=(7, 8), dpi=100)
+
+    # Top: original vs quantized
+    ax[0].stem(logic.cur_idxs, logic.cur_vals, linefmt='C0-', markerfmt='C0o', basefmt=" ", label="Original")
+    ax[0].stem(logic.cur_idxs, quantized_vals, linefmt='C1--', markerfmt='C1s', basefmt=" ", label="Quantized")
+    title_info = f"Quantized Signal (levels={quant_levels}" + (f", bits={quant_bits})" if quant_bits is not None else ")")
+    ax[0].set_title("Original vs Quantized - " + title_info)
+    ax[0].set_ylabel("Amplitude")
+    ax[0].grid(True)
+    ax[0].legend()
+
+    # Middle: quantization error
+    ax[1].stem(logic.cur_idxs, quant_error, linefmt='C2-', markerfmt='C2o', basefmt=" ")
+    ax[1].set_title("Quantization Error (original - quantized)")
+    ax[1].set_ylabel("Error")
+    ax[1].grid(True)
+
+    # Bottom: encoded integer levels
+    ax[2].stem(logic.cur_idxs, encoded_levels, linefmt='C3-', markerfmt='C3o', basefmt=" ")
+    ax[2].set_title("Encoded Levels (integer codes)")
+    ax[2].set_xlabel("Sample Index")
+    ax[2].set_ylabel("Level Code")
+    ax[2].grid(True)
+
+    plt.tight_layout()
+    canvas = FigureCanvasTkAgg(fig, master=remaining_space_frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill='both', expand=True)
+
 
 def add_signal_clicked():
     """Read the currently browsed file and add it to the accumulated signal."""
@@ -38,7 +184,7 @@ def add_signal_clicked():
     if not idxs or not vals:
         messagebox.showerror("Error", "Selected file contains no data.")
         return
-
+    
     logic.add_signal(idxs, vals)
     messagebox.showinfo("Added", f"Signal added to accumulation. Accumulated samples: {len(logic.cur_idxs)}")
 
@@ -218,6 +364,8 @@ signal_menu = Menu(menubar, tearoff=0)
 menubar.add_cascade(label="Signal Generation", menu=signal_menu)
 signal_menu.add_command(label="Sine Wave", command=lambda: show_signal_input_window("sine"))
 signal_menu.add_command(label="Cosine Wave", command=lambda: show_signal_input_window("cosine"))
+
+menubar.add_command(label="Quantize Signal", command=show_quantization_window)
 
 filepath = StringVar(value="No signal selected")
 

@@ -92,7 +92,24 @@ def multiply(vals, c):
         vals[i] *= c
 
     
-            
+def quantize(vals, bits):
+    """Quantize given list of signal values in place."""
+    levels = 2 ** bits
+    min_val = min(vals)
+    max_val = max(vals)
+    delta = (max_val - min_val) / levels
+
+    def quantize_error(original_vals, quantized_vals):
+        """Calculate quantization error between original and quantized values."""
+        error = []
+        for o, q in zip(original_vals, quantized_vals):
+            error.append(o - q)
+        return error
+
+    for i in range(len(vals)):
+        q_level = round((vals[i] - min_val) / delta)
+        vals[i] = min_val + q_level * delta
+    
 
 def reposition_array(indices, values):
     

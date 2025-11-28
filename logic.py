@@ -30,6 +30,98 @@ def fold_signal(idxs, vals):
     for i in range(len(idxs)):
             idxs[i] = idxs[i] * -1 
 
+def moving_average(vals, window_size):
+    """Compute moving average of signal values.
+    
+    Args:
+        vals: list of signal values
+        window_size: number of points to average over
+    
+    Returns:
+        list of moving average values (same length as input)
+    """
+    if window_size <= 0 or window_size > len(vals):
+        raise ValueError("Window size must be positive and <= signal length")
+    
+    result = []
+    for i in range(len(vals)):
+        start = max(0, i - window_size + 1)
+        end = i + 1
+        avg = sum(vals[start:end]) / (end - start)
+        result.append(avg)
+    
+    return result
+
+def convolve_signals(signal1_vals, signal2_vals):    
+    if not signal1_vals or not signal2_vals:
+        raise ValueError("Both signals must be non-empty")
+    
+    N = len(signal1_vals)
+    M = len(signal2_vals)
+    result_len = N + M - 1
+    result = [0.0] * result_len
+    
+    for n in range(result_len):
+        for k in range(max(0, n - M + 1), min(n + 1, N)):
+            result[n] += signal1_vals[k] * signal2_vals[n - k]
+    
+    indices = list(range(result_len))
+    return result, indices
+
+def dft(vals, inverse=False):
+    """"Calculate Fourier Transform of the signal"""
+    import cmath
+    f = []
+    N = len(vals)
+    for k in range(N):
+        f_k = 0
+        for n in range(N):
+            phase = (2*cmath.pi*k*n) / N 
+            phase = phase if inverse else -1 * phase
+            f_k += vals[n]*cmath.rect(1,phase) 
+        if inverse:
+            f_k = round((1 / N) * f_k.real)
+        f.append(f_k)
+    return f
+
+
+
+def first_derivative(vals):
+    """Return first derivative y(n) = x(n) - x(n-1)."""
+    if len(vals) < 2:
+        raise ValueError("Signal must have at least 2 samples for first derivative")
+    return [vals[i] - vals[i-1] for i in range(1, len(vals))]
+
+def second_derivative(vals):
+    """Return second derivative y(n) = x(n+1) - 2*x(n) + x(n-1)."""
+    if len(vals) < 3:
+        raise ValueError("Signal must have at least 3 samples for second derivative")
+    return [vals[i+1] - 2*vals[i] + vals[i-1] for i in range(1, len(vals)-1)]
+
+# Keep existing (older) inplace-naming functions for compatibility if needed,
+# but prefer the return-style API above in GUI.
+def first_dervative(idxs, vals):
+    """Legacy: inplace mutation (kept for compatibility)."""
+    global cur_idxs, cur_vals
+    new_idxs = []
+    new_vals = []
+    for i in range(1, len(cur_idxs)):
+        new_idxs.append(cur_idxs[i])
+        new_vals.append(cur_vals[i] - cur_vals[i-1])
+    cur_idxs = new_idxs
+    cur_vals = new_vals
+
+def second_dervative(idxs, vals):
+    """Legacy: inplace mutation (kept for compatibility)."""
+    global cur_idxs, cur_vals
+    new_idxs = []
+    new_vals = []
+    for i in range(0, len(cur_idxs)-1):
+        new_idxs.append(cur_idxs[i])
+        new_vals.append(cur_vals[i+1] - 2*cur_vals[i] + cur_vals[i-1])
+    cur_idxs = new_idxs
+    cur_vals = new_vals
+
 def add_signal(idxs, vals):
     """
     Add the given signal (idxs, vals) into the global cur_idxs / cur_vals.
@@ -143,4 +235,3 @@ def reposition_array(indices, values):
 # print(result)
 # print(result_idx)
 # [-2, 3, 0, 1, 7, 8, 4, -2, 5, 5, 0, 2, 3]
-# [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7]

@@ -14,9 +14,210 @@ encoded_levels = None
 quant_levels = None
 quant_bits = None
 
+processed_vals = None
+processed_idxs = None
+processed_type = None  
+
+dft_magnitude = None
+dft_phase = None
+dft_freqs = None
+dft_sampling_freq = None
+
+def show_moving_average_window():
+    """Open a window to input window size for moving average."""
+    if not logic.cur_vals:
+        messagebox.showerror("Error", "No signal available. Load or generate a signal first.")
+        return
+
+    input_window = Toplevel(rootWin)
+    input_window.title("Moving Average")
+    input_window.geometry("300x150")
+    input_window.resizable(False, False)
+
+    Label(input_window, text="Window Size:", font=("Segoe UI", 10)).pack(pady=10)
+    window_entry = Entry(input_window, width=20)
+    window_entry.pack()
+    window_entry.insert(0, "3")
+
+    def apply_moving_avg():
+        global processed_vals, processed_idxs, processed_type
+        try:
+            window_size = int(window_entry.get())
+            if window_size <= 0:
+                raise ValueError("Window size must be positive")
+            
+            result = logic.moving_average(logic.cur_vals, window_size)
+            processed_vals = result
+            processed_idxs = logic.cur_idxs[:]
+            processed_type = "moving_avg"
+            
+            input_window.destroy()
+            plot_processed()
+            messagebox.showinfo("Success", f"Moving average applied (window={window_size})")
+        except ValueError as e:
+            messagebox.showerror("Error", f"Invalid input: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+
+    Button(input_window, text="Apply", command=apply_moving_avg, width=12).pack(pady=10)
+    Button(input_window, text="Cancel", command=input_window.destroy, width=12).pack()
+
+def plot_processed():
+    """Plot processed signal safely."""
+    clear_plot_area()
+
+    if processed_vals is None or processed_idxs is None:
+        default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
+        return
+
+    # Remove old default label if present
+    try:
+        default_ploting_label.place_forget()
+    except:
+        pass
+
+    fig, ax = plt.subplots(2, 1, figsize=(7, 7), dpi=100)
+
+    # Top: original vs processed
+    ax[0].stem(logic.cur_idxs, logic.cur_vals, linefmt='C0-', markerfmt='C0o', basefmt=" ", label="Original")
+    ax[0].stem(processed_idxs, processed_vals, linefmt='C1--', markerfmt='C1s', basefmt=" ", label="Processed")
+    
+    title_map = {
+        "moving_avg": "Moving Average",
+        "first_deriv": "First Derivative: y(n) = x(n) - x(n-1)",
+        "second_deriv": "Second Derivative: y(n) = x(n+1) - 2x(n) + x(n-1)",
+        "convolution": "Convolution"
+    }
+    ax[0].set_title(title_map.get(processed_type, "Processed Signal"))
+    ax[0].set_ylabel("Amplitude")
+    ax[0].grid(True)
+    ax[0].legend()
+
+    # Bottom: processed signal only
+    ax[1].stem(processed_idxs, processed_vals, linefmt='C2-', markerfmt='C2o', basefmt=" ")
+    ax[1].plot(processed_idxs, processed_vals, marker='o', linestyle='-', color='C2', alpha=0.6)
+    ax[1].set_title(f"{title_map.get(processed_type, 'Processed')} Signal (Continuous)")
+    ax[1].set_xlabel("Sample Index")
+    ax[1].set_ylabel("Amplitude")
+    ax[1].grid(True)
+
+    plt.tight_layout()
+
+    # Create canvas
+    canvas = FigureCanvasTkAgg(fig, master=remaining_space_frame)
+    canvas.draw()
+
+    # Pack safely
+    widget = canvas.get_tk_widget()
+    widget.pack(fill='both', expand=True)
+
+
+
+def show_derivative_window():
+    """Open a window to choose first or second derivative."""
+    if not logic.cur_vals:
+        messagebox.showerror("Error", "No signal available. Load or generate a signal first.")
+        return
+
+    deriv_window = Toplevel(rootWin)
+    deriv_window.title("Sharpening - Derivative")
+    deriv_window.geometry("300x150")
+    deriv_window.resizable(False, False)
+
+    Label(deriv_window, text="Select Derivative:", font=("Segoe UI", 10)).pack(pady=10)
+
+    def apply_first():
+        global processed_vals, processed_idxs, processed_type
+        try:
+            # use the new return-style API
+            result = logic.first_derivative(logic.cur_vals)
+            processed_vals = result
+            # indices for first derivative are shifted: original indices from 1..end
+            processed_idxs = logic.cur_idxs[1:]
+            processed_type = "first_deriv"
+            deriv_window.destroy()
+            plot_processed()
+            messagebox.showinfo("Success", "First derivative applied: y(n) = x(n) - x(n-1)")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+
+    def apply_second():
+        global processed_vals, processed_idxs, processed_type
+        try:
+            result = logic.second_derivative(logic.cur_vals)
+            processed_vals = result
+            # indices for second derivative correspond to original indices 1..len-2
+            processed_idxs = logic.cur_idxs[1:-1]
+            processed_type = "second_deriv"
+            deriv_window.destroy()
+            plot_processed()
+            messagebox.showinfo("Success", "Second derivative applied: y(n) = x(n+1) - 2x(n) + x(n-1)")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+
+    Button(deriv_window, text="First Derivative", command=apply_first, width=20).pack(padx=10, pady=5)
+    Button(deriv_window, text="Second Derivative", command=apply_second, width=20).pack(padx=10, pady=5)
+    Button(deriv_window, text="Cancel", command=deriv_window.destroy, width=20).pack(padx=10, pady=5)
+    
+def show_convolution_window():
+    """Open a window to select second signal for convolution."""
+    if not logic.cur_vals:
+        messagebox.showerror("Error", "No signal available. Load or generate a signal first.")
+        
+        return
+
+    conv_window = Toplevel(rootWin)
+    conv_window.title("Convolution")
+    conv_window.geometry("300x180")
+    conv_window.resizable(False, False)
+
+    Label(conv_window, text="Load second signal for convolution:", font=("Segoe UI", 10)).pack(pady=10)
+    
+    selected_signal2_path = [None]
+    
+    def browse_signal2():
+        path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        if path:
+            selected_signal2_path[0] = path
+            Label(conv_window, text=path.split("/")[-1], font=("Segoe UI", 8), fg="green").pack()
+
+    Button(conv_window, text="Browse Signal 2", command=browse_signal2, width=20).pack(padx=10, pady=5)
+
+    def apply_convolution():
+        global processed_vals, processed_idxs, processed_type
+        try:
+            if not selected_signal2_path[0]:
+                messagebox.showerror("Error", "Please select a second signal.")
+                return
+
+            # Read second signal
+            idxs2 = []
+            vals2 = []
+            logic.read_signal(selected_signal2_path[0], idxs2, vals2)
+
+            # Convolve
+            result_vals, result_idxs = logic.convolve_signals(logic.cur_vals, vals2)
+            processed_vals = result_vals
+            processed_idxs = result_idxs
+            processed_type = "convolution"
+            
+            conv_window.destroy()
+            rootWin.after(50, plot_processed)  # Safe delay
+            messagebox.showinfo("Success", f"Convolution applied. Output length: {len(result_vals)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+
+    Button(conv_window, text="Apply Convolution", command=apply_convolution, width=20).pack(padx=10, pady=5)
+    Button(conv_window, text="Cancel", command=conv_window.destroy, width=20).pack(padx=10, pady=5)
+
 def clear_plot_area():
-    for w in remaining_space_frame.winfo_children():
-        w.destroy()
+    """Safely destroy all widgets in the plot area."""
+    for widget in remaining_space_frame.winfo_children():
+        try:
+            widget.destroy()
+        except:
+            pass  # In case widget is already gone
+
 
 def browse():
     global selected_path
@@ -349,6 +550,107 @@ def reset_accumulated():
     default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
     messagebox.showinfo("Reset", "Accumulated signal cleared.")
 
+def show_dft_window():
+    """Ask sampling freq, compute DFT, and plot magnitude & phase vs frequency."""
+    if not logic.cur_vals:
+        messagebox.showerror("Error", "No signal available. Load or generate a signal first.")
+        return
+
+    win = Toplevel(rootWin)
+    win.title("Compute DFT")
+    win.geometry("300x140")
+    win.resizable(False, False)
+
+    Label(win, text="Sampling frequency (Hz):", font=("Segoe UI", 10)).pack(pady=8)
+    fs_entry = Entry(win, width=20)
+    fs_entry.pack()
+    fs_entry.insert(0, "100.0")
+
+    def do_dft():
+        nonlocal fs_entry, win
+        try:
+            fs = float(fs_entry.get())
+            if fs <= 0:
+                raise ValueError("Sampling frequency must be positive.")
+            X = logic.dft(logic.cur_vals)
+            N = len(X)
+            freqs = [k * fs / N for k in range(N)]
+            mags = [abs(v) for v in X]
+            phases = [cmath_phase(v) for v in X]
+
+            # store global for potential later use
+            global dft_magnitude, dft_phase, dft_freqs, dft_sampling_freq, dft_spectrum
+            dft_magnitude = mags
+            dft_phase = phases
+            dft_freqs = freqs
+            dft_sampling_freq = fs
+            dft_spectrum = X
+
+            win.destroy()
+            plot_dft_results()
+        except ValueError as ve:
+            messagebox.showerror("Error", f"Invalid input: {ve}")
+        except Exception as e:
+            messagebox.showerror("Error", f"DFT failed: {e}")
+
+    Button(win, text="Compute DFT", command=do_dft, width=12).pack(pady=8)
+    Button(win, text="Cancel", command=win.destroy, width=12).pack()
+
+def cmath_phase(c):
+    """Return phase in radians for complex number (keeps defined if c==0)."""
+    import math
+    try:
+        import cmath
+        if c == 0:
+            return 0.0
+        return cmath.phase(c)
+    except Exception:
+        return 0.0
+
+def plot_dft_results():
+    """Plot frequency vs magnitude and frequency vs phase."""
+    clear_plot_area()
+    if dft_freqs is None or dft_magnitude is None or dft_phase is None:
+        default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
+        return
+
+    fig, ax = plt.subplots(2, 1, figsize=(7, 6), dpi=100)
+    ax[0].stem(dft_freqs, dft_magnitude, basefmt=" ")
+    ax[0].set_title("DFT - Magnitude")
+    ax[0].set_xlabel("Frequency (Hz)")
+    ax[0].set_ylabel("Amplitude")
+    ax[0].grid(True)
+
+    ax[1].stem(dft_freqs, dft_phase, basefmt=" ")
+    ax[1].set_title("DFT - Phase (radians)")
+    ax[1].set_xlabel("Frequency (Hz)")
+    ax[1].set_ylabel("Phase (rad)")
+    ax[1].grid(True)
+
+    plt.tight_layout()
+    canvas = FigureCanvasTkAgg(fig, master=remaining_space_frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill='both', expand=True)
+
+def show_idft_window():
+    """Reconstruct time-domain signal from last computed DFT (or ask user to compute DFT first)."""
+    global dft_spectrum
+    if 'dft_spectrum' not in globals() or dft_spectrum is None:
+        messagebox.showerror("Error", "No DFT spectrum available. Compute DFT first.")
+        return
+
+    try:
+        x_recon = logic.dft(dft_spectrum, True)
+        # set processed for plotting overlay
+        global processed_vals, processed_idxs, processed_type
+        processed_vals = x_recon
+        processed_idxs = logic.cur_idxs[:]  # spectrum length equals original N if used same length
+        processed_type = "idft_reconstruction"
+        plot_processed()
+        messagebox.showinfo("Reconstructed", "Signal reconstructed using IDFT and plotted.")
+    except Exception as e:
+        messagebox.showerror("Error", f"IDFT failed: {e}")
+
 # =================================================================
 # GUI SETUP - Organized Layout
 # =================================================================
@@ -391,6 +693,19 @@ default_ploting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
 # =================================================================
 # LEFT PANEL - CONTROL SECTIONS
 # =================================================================
+
+# --- Signal Processing Section ---
+processing_section = LabelFrame(left_panel, text="Signal Processing", font=("Segoe UI", 10, "bold"), bg="#E8E8E8", fg="#333")
+processing_section.pack(fill=X, pady=10)
+
+moving_avg_button = Button(processing_section, text="Moving Average", command=show_moving_average_window, width=20, bg="#E91E63", fg="white")
+moving_avg_button.pack(padx=5, pady=3)
+
+derivative_button = Button(processing_section, text="Sharpening (Derivative)", command=show_derivative_window, width=20, bg="#FF5722", fg="white")
+derivative_button.pack(padx=5, pady=3)
+
+convolution_button = Button(processing_section, text="Convolution", command=show_convolution_window, width=20, bg="#673AB7", fg="white")
+convolution_button.pack(padx=5, pady=3)
 
 # --- File Management Section ---
 file_section = LabelFrame(left_panel, text="File Management", font=("Segoe UI", 10, "bold"), bg="#E8E8E8", fg="#333")
@@ -452,5 +767,11 @@ plot_button.pack(padx=5, pady=3)
 
 reset_button = Button(plot_section, text="Reset All", command=reset_accumulated, width=20, bg="#F44336", fg="white")
 reset_button.pack(padx=5, pady=3)
+
+dft_button = Button(processing_section, text="DFT (Frequency)", command=lambda: show_dft_window(), width=20, bg="#3F51B5", fg="white")
+dft_button.pack(padx=5, pady=3)
+
+idft_button = Button(processing_section, text="IDFT (Reconstruct)", command=lambda: show_idft_window(), width=20, bg="#607D8B", fg="white")
+idft_button.pack(padx=5, pady=3)
 
 rootWin.mainloop()
